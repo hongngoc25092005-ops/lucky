@@ -94,6 +94,31 @@ export default function LuckyWheel() {
              navigator.userAgent.toUpperCase().indexOf('MAC') >= 0)
   }, [])
 
+  // Function to show next winner
+  const showNextWinner = () => {
+    if (showDialog && winners.length > 0 && visibleWinnerIndex < winners.length - 1) {
+      const nextIndex = visibleWinnerIndex + 1
+      setVisibleWinnerIndex(nextIndex)
+      
+      // Scroll to the newly visible winner first
+      setTimeout(() => {
+        const winnerElement = dialogRef.current?.querySelector(`[data-winner-index="${nextIndex}"]`)
+        if (winnerElement) {
+          winnerElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          
+          // Play sound AFTER the winner element is visible and animation has started
+          const nextWinner = winners[nextIndex]
+          if (nextWinner && showDialog) {
+            // Delay sound to play after winner is visible (600ms matches animation duration)
+            setTimeout(() => {
+              playWinnerSound(nextWinner.rank)
+            }, 400)
+          }
+        }
+      }, 100)
+    }
+  }
+
   // Keyboard event handler for Shift+N
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -105,25 +130,7 @@ export default function LuckyWheel() {
           event.stopPropagation()
           event.stopImmediatePropagation()
           
-          const nextIndex = visibleWinnerIndex + 1
-          setVisibleWinnerIndex(nextIndex)
-          
-          // Scroll to the newly visible winner first
-          setTimeout(() => {
-            const winnerElement = dialogRef.current?.querySelector(`[data-winner-index="${nextIndex}"]`)
-            if (winnerElement) {
-              winnerElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              
-              // Play sound AFTER the winner element is visible and animation has started
-              const nextWinner = winners[nextIndex]
-              if (nextWinner && showDialog) {
-                // Delay sound to play after winner is visible (600ms matches animation duration)
-                setTimeout(() => {
-                  playWinnerSound(nextWinner.rank)
-                }, 400)
-              }
-            }
-          }, 100)
+          showNextWinner()
           
           return false
         }
@@ -481,10 +488,14 @@ export default function LuckyWheel() {
 
         {/* Winner Dialog Modal */}
         {showDialog && winners.length > 0 && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div 
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={showNextWinner}
+          >
             <div 
               ref={dialogRef}
               className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Dialog Header */}
               <div className="bg-gradient-to-r from-primary-blue to-sky-blue p-6 text-white flex items-center justify-between">
@@ -595,8 +606,8 @@ export default function LuckyWheel() {
                     
                     {/* Keyboard hint */}
                     {visibleWinnerIndex < winners.length - 1 && (
-                      <div className="mt-6 p-5 bg-primary-blue/10 border-2 border-dashed border-primary-blue rounded-2xl text-center animate-pulse">
-                        <p className="text-base text-primary-blue font-bold flex items-center justify-center gap-2">
+                      <div className="mt-6 p-5 bg-primary-blue/10 border-2 border-dashed border-primary-blue rounded-2xl text-center animate-pulse cursor-pointer hover:bg-primary-blue/20 transition-colors">
+                        <p className="text-base text-primary-blue font-bold flex items-center justify-center gap-2 flex-wrap">
                           <span>Nhấn</span>
                           <kbd className="px-3 py-1.5 bg-white rounded-lg border-2 border-primary-blue font-mono text-sm font-bold shadow-md">
                             Shift
@@ -605,6 +616,10 @@ export default function LuckyWheel() {
                           <kbd className="px-3 py-1.5 bg-white rounded-lg border-2 border-primary-blue font-mono text-sm font-bold shadow-md">
                             N
                           </kbd>
+                          <span>hoặc</span>
+                          <span className="px-3 py-1.5 bg-white rounded-lg border-2 border-primary-blue text-sm font-bold shadow-md">
+                            Click
+                          </span>
                           <span>để hiển thị người thắng tiếp theo</span>
                         </p>
                         <p className="text-sm text-primary-blue/70 mt-2">
