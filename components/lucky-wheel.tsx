@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Trophy, Sparkles, Users, Gift, Star, CheckCircle2 } from 'lucide-react'
+import { Trophy, Sparkles, Users, Gift, Star, CheckCircle2, Volume2, VolumeX } from 'lucide-react'
 import { initialData } from '@/lib/initialData'
 
 interface Winner {
@@ -23,6 +23,7 @@ export default function LuckyWheel() {
   const [visibleWinnerIndex, setVisibleWinnerIndex] = useState<number>(-1)
   const [isMac, setIsMac] = useState<boolean>(false)
   const [showDialog, setShowDialog] = useState<boolean>(false)
+  const [isMuted, setIsMuted] = useState<boolean>(false)
   const dialogRef = useRef<HTMLDivElement>(null)
   const wheelRef = useRef<HTMLDivElement>(null)
   
@@ -56,7 +57,12 @@ export default function LuckyWheel() {
   }
 
   // Function to play winner sound based on rank
-  const playWinnerSound = (rank: number) => {
+  const playWinnerSound = (rank: number, forcePlay: boolean = false) => {
+    // Don't play if muted (unless forced)
+    if (!forcePlay && isMuted) {
+      return
+    }
+    
     // First, stop all currently playing audio
     stopAllAudio()
     
@@ -77,8 +83,16 @@ export default function LuckyWheel() {
       audioRef = winner6AudioRef
     }
     
+    // Capture current mute state to avoid closure issues
+    const mutedState = isMuted
+    
     // Small delay to ensure previous audio is stopped
     setTimeout(() => {
+      // Check mute state again at play time (unless forced)
+      if (!forcePlay && mutedState) {
+        return
+      }
+      
       if (audioRef?.current) {
         audioRef.current.currentTime = 0 // Reset to beginning
         audioRef.current.play().catch(error => {
@@ -98,6 +112,7 @@ export default function LuckyWheel() {
   const showNextWinner = () => {
     if (showDialog && winners.length > 0 && visibleWinnerIndex < winners.length - 1) {
       const nextIndex = visibleWinnerIndex + 1
+      const shouldPlaySound = !isMuted // Capture mute state at call time
       setVisibleWinnerIndex(nextIndex)
       
       // Scroll to the newly visible winner first
@@ -111,7 +126,10 @@ export default function LuckyWheel() {
           if (nextWinner && showDialog) {
             // Delay sound to play after winner is visible (600ms matches animation duration)
             setTimeout(() => {
-              playWinnerSound(nextWinner.rank)
+              // Only play if not muted (captured state)
+              if (shouldPlaySound) {
+                playWinnerSound(nextWinner.rank, true) // Force play since we already checked
+              }
             }, 400)
           }
         }
@@ -180,15 +198,17 @@ export default function LuckyWheel() {
     // Stop all previous audio before starting spin
     stopAllAudio()
 
-    // Play spinning sound (winner1 sound for spinning)
-    setTimeout(() => {
-      if (winner1AudioRef.current) {
-        winner1AudioRef.current.currentTime = 0
-        winner1AudioRef.current.play().catch(error => {
-          console.log('Audio play failed:', error)
-        })
-      }
-    }, 50)
+    // Play spinning sound (winner1 sound for spinning) - only if not muted
+    if (!isMuted) {
+      setTimeout(() => {
+        if (winner1AudioRef.current) {
+          winner1AudioRef.current.currentTime = 0
+          winner1AudioRef.current.play().catch(error => {
+            console.log('Audio play failed:', error)
+          })
+        }
+      }, 50)
+    }
 
     // Random selection logic
     const shuffled = [...valuesList].sort(() => Math.random() - 0.5)
@@ -510,13 +530,34 @@ export default function LuckyWheel() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={handleCloseDialog}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                  aria-label="Đóng"
-                >
-                  <span className="text-2xl">×</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const newMuteState = !isMuted
+                      setIsMuted(newMuteState)
+                      // Stop all audio immediately when muting
+                      if (newMuteState) {
+                        stopAllAudio()
+                      }
+                    }}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    aria-label={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+                    title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+                  >
+                    {isMuted ? (
+                      <VolumeX className="w-6 h-6 text-white" />
+                    ) : (
+                      <Volume2 className="w-6 h-6 text-white" />
+                    )}
+                  </button>
+                  <button
+                    onClick={handleCloseDialog}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    aria-label="Đóng"
+                  >
+                    <span className="text-2xl">×</span>
+                  </button>
+                </div>
               </div>
 
               {/* Scrollable Content */}
