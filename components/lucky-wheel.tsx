@@ -25,8 +25,43 @@ export default function LuckyWheel() {
   const [showDialog, setShowDialog] = useState<boolean>(false)
   const dialogRef = useRef<HTMLDivElement>(null)
   const wheelRef = useRef<HTMLDivElement>(null)
+  
+  // Audio refs for sound effects
+  const winner1AudioRef = useRef<HTMLAudioElement>(null)
+  const winner2AudioRef = useRef<HTMLAudioElement>(null)
+  const winner3AudioRef = useRef<HTMLAudioElement>(null)
+  const winner4AudioRef = useRef<HTMLAudioElement>(null)
+  const winner5AudioRef = useRef<HTMLAudioElement>(null)
+  const winner6AudioRef = useRef<HTMLAudioElement>(null)
 
   const valuesList = values.split('\n').filter(v => v.trim() !== '')
+
+  // Function to play winner sound based on rank
+  const playWinnerSound = (rank: number) => {
+    let audioRef: React.RefObject<HTMLAudioElement> | null = null
+    
+    // Map rank to sound file (1-6)
+    if (rank === 1) {
+      audioRef = winner1AudioRef
+    } else if (rank === 2) {
+      audioRef = winner2AudioRef
+    } else if (rank === 3) {
+      audioRef = winner3AudioRef
+    } else if (rank === 4) {
+      audioRef = winner4AudioRef
+    } else if (rank === 5) {
+      audioRef = winner5AudioRef
+    } else {
+      audioRef = winner6AudioRef
+    }
+    
+    if (audioRef?.current) {
+      audioRef.current.currentTime = 0 // Reset to beginning
+      audioRef.current.play().catch(error => {
+        console.log('Audio play failed:', error)
+      })
+    }
+  }
 
   // Detect platform
   useEffect(() => {
@@ -44,11 +79,18 @@ export default function LuckyWheel() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
         event.preventDefault()
         if (winners.length > 0 && visibleWinnerIndex < winners.length - 1) {
-          setVisibleWinnerIndex(prev => prev + 1)
+          const nextIndex = visibleWinnerIndex + 1
+          setVisibleWinnerIndex(nextIndex)
+          
+          // Play sound for the new winner based on their rank
+          const nextWinner = winners[nextIndex]
+          if (nextWinner) {
+            playWinnerSound(nextWinner.rank)
+          }
           
           // Scroll to the newly visible winner
           setTimeout(() => {
-            const winnerElement = dialogRef.current?.querySelector(`[data-winner-index="${visibleWinnerIndex + 1}"]`)
+            const winnerElement = dialogRef.current?.querySelector(`[data-winner-index="${nextIndex}"]`)
             if (winnerElement) {
               winnerElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }
@@ -92,6 +134,14 @@ export default function LuckyWheel() {
     setShowAnimation(false)
     setWinners([])
 
+    // Play spinning sound (winner1 sound for spinning)
+    if (winner1AudioRef.current) {
+      winner1AudioRef.current.currentTime = 0
+      winner1AudioRef.current.play().catch(error => {
+        console.log('Audio play failed:', error)
+      })
+    }
+
     // Random selection logic
     const shuffled = [...valuesList].sort(() => Math.random() - 0.5)
     const selectedWinners = shuffled.slice(0, winnerCount).map((name, index) => ({
@@ -118,6 +168,11 @@ export default function LuckyWheel() {
       setShowAnimation(true)
       setVisibleWinnerIndex(0) // Show first winner
       setShowDialog(true) // Open dialog
+      
+      // Play sound for first winner
+      setTimeout(() => {
+        playWinnerSound(1)
+      }, 500)
 
       // Hide animation after 3 seconds
       setTimeout(() => {
@@ -544,6 +599,26 @@ export default function LuckyWheel() {
           </div>
         )}
       </div>
+
+      {/* Hidden audio elements for sound effects */}
+      <audio ref={winner1AudioRef} preload="auto">
+        <source src="/winner1.mp3" type="audio/mpeg" />
+      </audio>
+      <audio ref={winner2AudioRef} preload="auto">
+        <source src="/winner2.mp3" type="audio/mpeg" />
+      </audio>
+      <audio ref={winner3AudioRef} preload="auto">
+        <source src="/winner3.mp3" type="audio/mpeg" />
+      </audio>
+      <audio ref={winner4AudioRef} preload="auto">
+        <source src="/winner4.mp3" type="audio/mpeg" />
+      </audio>
+      <audio ref={winner5AudioRef} preload="auto">
+        <source src="/winner5.mp3" type="audio/mpeg" />
+      </audio>
+      <audio ref={winner6AudioRef} preload="auto">
+        <source src="/winner6.mp3" type="audio/mpeg" />
+      </audio>
     </div>
   )
 }
