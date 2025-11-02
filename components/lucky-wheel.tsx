@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Trophy, Sparkles, Users, Gift, Star, CheckCircle2 } from 'lucide-react'
+import { initialData } from '@/lib/initialData'
 
 interface Winner {
   name: string
@@ -13,15 +14,67 @@ interface Winner {
 }
 
 export default function LuckyWheel() {
-  const [values, setValues] = useState<string>('')
+  const [values, setValues] = useState<string>(initialData)
   const [numWinners, setNumWinners] = useState<string>('1')
   const [isSpinning, setIsSpinning] = useState(false)
   const [winners, setWinners] = useState<Winner[]>([])
   const [showAnimation, setShowAnimation] = useState(false)
   const [currentRotation, setCurrentRotation] = useState(0)
+  const [visibleWinnerIndex, setVisibleWinnerIndex] = useState<number>(-1)
+  const [isMac, setIsMac] = useState<boolean>(false)
+  const [showDialog, setShowDialog] = useState<boolean>(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const wheelRef = useRef<HTMLDivElement>(null)
 
   const valuesList = values.split('\n').filter(v => v.trim() !== '')
+
+  // Detect platform
+  useEffect(() => {
+    setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0 || 
+             navigator.userAgent.toUpperCase().indexOf('MAC') >= 0)
+  }, [])
+
+  // Keyboard event handler for Ctrl+N / Cmd+N
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle if dialog is open
+      if (!showDialog) return
+      
+      // Check for Ctrl+N (Windows/Linux) or Cmd+N (Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
+        event.preventDefault()
+        if (winners.length > 0 && visibleWinnerIndex < winners.length - 1) {
+          setVisibleWinnerIndex(prev => prev + 1)
+          
+          // Scroll to the newly visible winner
+          setTimeout(() => {
+            const winnerElement = dialogRef.current?.querySelector(`[data-winner-index="${visibleWinnerIndex + 1}"]`)
+            if (winnerElement) {
+              winnerElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+          }, 100)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [winners.length, visibleWinnerIndex, showDialog])
+
+  // Close dialog handler
+  const handleCloseDialog = () => {
+    setShowDialog(false)
+    setVisibleWinnerIndex(-1)
+  }
+
+  // Reset visible index when dialog closes
+  useEffect(() => {
+    if (!showDialog && winners.length > 0) {
+      setVisibleWinnerIndex(-1)
+    }
+  }, [showDialog, winners.length])
 
   const spinWheel = () => {
     if (valuesList.length === 0) {
@@ -63,6 +116,8 @@ export default function LuckyWheel() {
       setIsSpinning(false)
       setWinners(selectedWinners)
       setShowAnimation(true)
+      setVisibleWinnerIndex(0) // Show first winner
+      setShowDialog(true) // Open dialog
 
       // Hide animation after 3 seconds
       setTimeout(() => {
@@ -292,145 +347,199 @@ export default function LuckyWheel() {
           </div>
         </div>
 
-        {/* Winner Animation & Leaderboard */}
-        {(showAnimation || winners.length > 0) && (
-          <div className="mt-12 col-span-full">
-            <div className="bg-white/80 backdrop-blur-lg p-8 rounded-3xl shadow-xl border border-white/50">
-              {showAnimation && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+        {/* Winner Animation */}
+        {showAnimation && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="relative">
+              {/* Confetti effect */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                {[...Array(12)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute w-3 h-3 rounded-full"
+                    style={{
+                      backgroundColor: ['#FFD700', '#FF6F61', '#A5D6A7', '#0074C8', '#5BB9F0'][i % 5],
+                      transform: `rotate(${i * 30}deg) translateY(-120px)`,
+                      animation: `confetti 2s ease-out ${i * 0.1}s forwards`,
+                    }}
+                  />
+                ))}
+              </div>
+              
+              <div className="bg-gradient-to-br from-white to-cool-gray/50 backdrop-blur-xl rounded-3xl p-12 shadow-2xl animate-win-pulse border-2 border-gold/50">
+                <div className="flex flex-col items-center gap-6">
                   <div className="relative">
-                    {/* Confetti effect */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {[...Array(12)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="absolute w-3 h-3 rounded-full"
-                          style={{
-                            backgroundColor: ['#FFD700', '#FF6F61', '#A5D6A7', '#0074C8', '#5BB9F0'][i % 5],
-                            transform: `rotate(${i * 30}deg) translateY(-120px)`,
-                            animation: `confetti 2s ease-out ${i * 0.1}s forwards`,
-                          }}
-                        />
-                      ))}
-                    </div>
-                    
-                    <div className="bg-gradient-to-br from-white to-cool-gray/50 backdrop-blur-xl rounded-3xl p-12 shadow-2xl animate-win-pulse border-2 border-gold/50">
-                      <div className="flex flex-col items-center gap-6">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-gold/20 rounded-full blur-2xl animate-ping" />
-                          <Sparkles className="w-20 h-20 text-gold animate-spin relative z-10" />
-                          <Trophy className="w-14 h-14 text-gold absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 drop-shadow-lg" />
-                        </div>
-                        <div className="text-center">
-                          <h2 className="text-4xl font-extrabold bg-gradient-to-r from-gold via-soft-green to-primary-blue bg-clip-text text-transparent mb-2">
-                            Chúc Mừng!
-                          </h2>
-                          <p className="text-xl text-main-text font-medium">
-                            Đã chọn được người thắng cuộc!
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    <div className="absolute inset-0 bg-gold/20 rounded-full blur-2xl animate-ping" />
+                    <Sparkles className="w-20 h-20 text-gold animate-spin relative z-10" />
+                    <Trophy className="w-14 h-14 text-gold absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 drop-shadow-lg" />
+                  </div>
+                  <div className="text-center">
+                    <h2 className="text-4xl font-extrabold bg-gradient-to-r from-gold via-soft-green to-primary-blue bg-clip-text text-transparent mb-2">
+                      Chúc Mừng!
+                    </h2>
+                    <p className="text-xl text-main-text font-medium">
+                      Đã chọn được người thắng cuộc!
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
+          </div>
+        )}
 
-              <div className="mb-8">
-                <h2 className="text-3xl font-extrabold text-main-text flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-gold to-soft-green rounded-xl shadow-lg">
-                    <Trophy className="w-7 h-7 text-white" />
+        {/* Winner Dialog Modal */}
+        {showDialog && winners.length > 0 && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div 
+              ref={dialogRef}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+            >
+              {/* Dialog Header */}
+              <div className="bg-gradient-to-r from-primary-blue to-sky-blue p-6 text-white flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Trophy className="w-8 h-8 text-white" />
                   </div>
-                  Bảng Xếp Hạng Người Thắng
-                </h2>
-                <p className="text-secondary-text mt-2 ml-14">Danh sách những người may mắn nhất</p>
+                  <div>
+                    <h2 className="text-3xl font-extrabold">Bảng Xếp Hạng Người Thắng</h2>
+                    <p className="text-white/80 text-sm mt-1">
+                      {winners.length} người thắng cuộc
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCloseDialog}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  aria-label="Đóng"
+                >
+                  <span className="text-2xl">×</span>
+                </button>
               </div>
 
-              {winners.length > 0 ? (
-                <div className="space-y-4">
-                  {winners.map((winner, index) => (
-                    <div
-                      key={index}
-                      className={`group flex items-center gap-6 p-6 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
-                        winner.rank === 1
-                          ? 'bg-gradient-to-r from-gold/30 via-soft-green/20 to-gold/30 border-gold shadow-lg'
-                          : winner.rank === 2
-                          ? 'bg-gradient-to-r from-sky-blue/20 via-primary-blue/10 to-sky-blue/20 border-sky-blue shadow-md'
-                          : winner.rank === 3
-                          ? 'bg-gradient-to-r from-soft-green/20 via-primary-blue/10 to-soft-green/20 border-soft-green shadow-md'
-                          : 'bg-white/50 border-cool-gray/50 hover:border-primary-blue/50'
-                      }`}
-                    >
-                      {/* Rank Badge */}
-                      <div className="relative flex-shrink-0">
-                        <div
-                          className={`w-16 h-16 rounded-2xl flex items-center justify-center font-extrabold text-white text-2xl shadow-lg ${
-                            winner.rank === 1
-                              ? 'bg-gradient-to-br from-gold to-soft-green'
-                              : winner.rank === 2
-                              ? 'bg-gradient-to-br from-sky-blue to-primary-blue'
-                              : winner.rank === 3
-                              ? 'bg-gradient-to-br from-soft-green to-primary-blue'
-                              : 'bg-gradient-to-br from-primary-blue to-navy-blue'
-                          }`}
-                        >
-                          {winner.rank === 1 ? '🥇' : winner.rank === 2 ? '🥈' : winner.rank === 3 ? '🥉' : winner.rank}
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-app-bg to-white">
+                {winners.length > 0 ? (
+                  <div className="space-y-4">
+                    {winners.slice(0, visibleWinnerIndex + 1).map((winner, index) => (
+                      <div
+                        key={index}
+                        data-winner-index={index}
+                        className={`group flex items-center gap-6 p-6 rounded-2xl border-2 transition-all duration-500 hover:scale-[1.02] hover:shadow-lg ${
+                          winner.rank === 1
+                            ? 'bg-gradient-to-r from-gold/30 via-soft-green/20 to-gold/30 border-gold shadow-lg'
+                            : winner.rank === 2
+                            ? 'bg-gradient-to-r from-sky-blue/20 via-primary-blue/10 to-sky-blue/20 border-sky-blue shadow-md'
+                            : winner.rank === 3
+                            ? 'bg-gradient-to-r from-soft-green/20 via-primary-blue/10 to-soft-green/20 border-soft-green shadow-md'
+                            : 'bg-white/50 border-cool-gray/50 hover:border-primary-blue/50'
+                        }`}
+                        style={{
+                          animation: index <= visibleWinnerIndex ? `winnerSlideIn 0.6s ease-out forwards` : 'none',
+                          opacity: index <= visibleWinnerIndex ? 1 : 0,
+                        }}
+                      >
+                        {/* Rank Badge */}
+                        <div className="relative flex-shrink-0">
+                          <div
+                            className={`w-16 h-16 rounded-2xl flex items-center justify-center font-extrabold text-white text-2xl shadow-lg ${
+                              winner.rank === 1
+                                ? 'bg-gradient-to-br from-gold to-soft-green'
+                                : winner.rank === 2
+                                ? 'bg-gradient-to-br from-sky-blue to-primary-blue'
+                                : winner.rank === 3
+                                ? 'bg-gradient-to-br from-soft-green to-primary-blue'
+                                : 'bg-gradient-to-br from-primary-blue to-navy-blue'
+                            }`}
+                          >
+                            {winner.rank === 1 ? '🥇' : winner.rank === 2 ? '🥈' : winner.rank === 3 ? '🥉' : winner.rank}
+                          </div>
+                          {winner.rank === 1 && (
+                            <div className="absolute -top-1 -right-1">
+                              <Star className="w-6 h-6 text-gold fill-gold animate-pulse" />
+                            </div>
+                          )}
                         </div>
+                        
+                        {/* Winner Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-xl text-main-text mb-1 truncate">
+                            {winner.name}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
+                              winner.rank === 1
+                                ? 'bg-gold/20 text-gold'
+                                : winner.rank === 2
+                                ? 'bg-sky-blue/20 text-sky-blue'
+                                : winner.rank === 3
+                                ? 'bg-soft-green/20 text-soft-green'
+                                : 'bg-primary-blue/20 text-primary-blue'
+                            }`}>
+                              Vị trí #{winner.rank}
+                            </span>
+                            {winner.rank === 1 && (
+                              <span className="text-xs font-bold text-gold bg-gold/10 px-2 py-1 rounded-full">
+                                CHAMPION
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Trophy Icon for Winner */}
                         {winner.rank === 1 && (
-                          <div className="absolute -top-1 -right-1">
-                            <Star className="w-6 h-6 text-gold fill-gold animate-pulse" />
+                          <div className="flex-shrink-0">
+                            <Trophy className="w-10 h-10 text-gold drop-shadow-lg animate-bounce" />
+                          </div>
+                        )}
+                        {winner.rank <= 3 && winner.rank !== 1 && (
+                          <div className="flex-shrink-0">
+                            <Star className={`w-8 h-8 ${
+                              winner.rank === 2 ? 'text-sky-blue' : 'text-soft-green'
+                            }`} />
                           </div>
                         )}
                       </div>
-                      
-                      {/* Winner Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-xl text-main-text mb-1 truncate">
-                          {winner.name}
+                    ))}
+                    
+                    {/* Keyboard hint */}
+                    {visibleWinnerIndex < winners.length - 1 && (
+                      <div className="mt-6 p-5 bg-primary-blue/10 border-2 border-dashed border-primary-blue rounded-2xl text-center animate-pulse">
+                        <p className="text-base text-primary-blue font-bold flex items-center justify-center gap-2">
+                          <span>Nhấn</span>
+                          <kbd className="px-3 py-1.5 bg-white rounded-lg border-2 border-primary-blue font-mono text-sm font-bold shadow-md">
+                            {isMac ? '⌘' : 'Ctrl'}
+                          </kbd>
+                          <span>+</span>
+                          <kbd className="px-3 py-1.5 bg-white rounded-lg border-2 border-primary-blue font-mono text-sm font-bold shadow-md">
+                            N
+                          </kbd>
+                          <span>để hiển thị người thắng tiếp theo</span>
                         </p>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
-                            winner.rank === 1
-                              ? 'bg-gold/20 text-gold'
-                              : winner.rank === 2
-                              ? 'bg-sky-blue/20 text-sky-blue'
-                              : winner.rank === 3
-                              ? 'bg-soft-green/20 text-soft-green'
-                              : 'bg-primary-blue/20 text-primary-blue'
-                          }`}>
-                            Vị trí #{winner.rank}
-                          </span>
-                          {winner.rank === 1 && (
-                            <span className="text-xs font-bold text-gold bg-gold/10 px-2 py-1 rounded-full">
-                              CHAMPION
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-sm text-primary-blue/70 mt-2">
+                          ({visibleWinnerIndex + 1} / {winners.length})
+                        </p>
                       </div>
-                      
-                      {/* Trophy Icon for Winner */}
-                      {winner.rank === 1 && (
-                        <div className="flex-shrink-0">
-                          <Trophy className="w-10 h-10 text-gold drop-shadow-lg animate-bounce" />
-                        </div>
-                      )}
-                      {winner.rank <= 3 && winner.rank !== 1 && (
-                        <div className="flex-shrink-0">
-                          <Star className={`w-8 h-8 ${
-                            winner.rank === 2 ? 'text-sky-blue' : 'text-soft-green'
-                          }`} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16">
-                  <Gift className="w-20 h-20 text-cool-gray mx-auto mb-4 opacity-50" />
-                  <p className="text-secondary-text text-lg">
-                    Chưa có người thắng cuộc. Hãy quay vòng quay may mắn!
-                  </p>
-                </div>
-              )}
+                    )}
+                    
+                    {/* All winners shown message */}
+                    {visibleWinnerIndex >= winners.length - 1 && (
+                      <div className="mt-6 p-5 bg-soft-green/20 border-2 border-soft-green rounded-2xl text-center">
+                        <p className="text-base text-soft-green font-bold flex items-center justify-center gap-2">
+                          <CheckCircle2 className="w-5 h-5" />
+                          Đã hiển thị tất cả người thắng cuộc!
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-16">
+                    <Gift className="w-20 h-20 text-cool-gray mx-auto mb-4 opacity-50" />
+                    <p className="text-secondary-text text-lg">
+                      Chưa có người thắng cuộc
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
