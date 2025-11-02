@@ -108,17 +108,20 @@ export default function LuckyWheel() {
           const nextIndex = visibleWinnerIndex + 1
           setVisibleWinnerIndex(nextIndex)
           
-          // Play sound for the new winner based on their rank (only when dialog is open)
-          const nextWinner = winners[nextIndex]
-          if (nextWinner && showDialog) {
-            playWinnerSound(nextWinner.rank)
-          }
-          
-          // Scroll to the newly visible winner
+          // Scroll to the newly visible winner first
           setTimeout(() => {
             const winnerElement = dialogRef.current?.querySelector(`[data-winner-index="${nextIndex}"]`)
             if (winnerElement) {
               winnerElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              
+              // Play sound AFTER the winner element is visible and animation has started
+              const nextWinner = winners[nextIndex]
+              if (nextWinner && showDialog) {
+                // Delay sound to play after winner is visible (600ms matches animation duration)
+                setTimeout(() => {
+                  playWinnerSound(nextWinner.rank)
+                }, 400)
+              }
             }
           }, 100)
           
