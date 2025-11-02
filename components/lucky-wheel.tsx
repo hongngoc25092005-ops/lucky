@@ -15,7 +15,7 @@ interface Winner {
 
 export default function LuckyWheel() {
   const [values, setValues] = useState<string>(initialData)
-  const [numWinners, setNumWinners] = useState<string>('1')
+  const [numWinners, setNumWinners] = useState<string>('5')
   const [isSpinning, setIsSpinning] = useState(false)
   const [winners, setWinners] = useState<Winner[]>([])
   const [showAnimation, setShowAnimation] = useState(false)
@@ -36,8 +36,30 @@ export default function LuckyWheel() {
 
   const valuesList = values.split('\n').filter(v => v.trim() !== '')
 
+  // Function to stop all playing audio
+  const stopAllAudio = () => {
+    const allAudioRefs = [
+      winner1AudioRef,
+      winner2AudioRef,
+      winner3AudioRef,
+      winner4AudioRef,
+      winner5AudioRef,
+      winner6AudioRef
+    ]
+    
+    allAudioRefs.forEach(audioRef => {
+      if (audioRef?.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+      }
+    })
+  }
+
   // Function to play winner sound based on rank
   const playWinnerSound = (rank: number) => {
+    // First, stop all currently playing audio
+    stopAllAudio()
+    
     let audioRef: React.RefObject<HTMLAudioElement> | null = null
     
     // Map rank to sound file (1-6)
@@ -55,12 +77,15 @@ export default function LuckyWheel() {
       audioRef = winner6AudioRef
     }
     
-    if (audioRef?.current) {
-      audioRef.current.currentTime = 0 // Reset to beginning
-      audioRef.current.play().catch(error => {
-        console.log('Audio play failed:', error)
-      })
-    }
+    // Small delay to ensure previous audio is stopped
+    setTimeout(() => {
+      if (audioRef?.current) {
+        audioRef.current.currentTime = 0 // Reset to beginning
+        audioRef.current.play().catch(error => {
+          console.log('Audio play failed:', error)
+        })
+      }
+    }, 50)
   }
 
   // Detect platform
@@ -69,22 +94,23 @@ export default function LuckyWheel() {
              navigator.userAgent.toUpperCase().indexOf('MAC') >= 0)
   }, [])
 
-  // Keyboard event handler for Ctrl+N / Cmd+N
+  // Keyboard event handler for Shift+N
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle if dialog is open
-      if (!showDialog) return
-      
-      // Check for Ctrl+N (Windows/Linux) or Cmd+N (Mac)
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
-        event.preventDefault()
-        if (winners.length > 0 && visibleWinnerIndex < winners.length - 1) {
+      // Check for Shift+N (works on both Windows/Linux and Mac)
+      if (event.shiftKey && event.key.toLowerCase() === 'n') {
+        // Only prevent default and handle if dialog is open and showing results
+        if (showDialog && winners.length > 0 && visibleWinnerIndex < winners.length - 1) {
+          event.preventDefault()
+          event.stopPropagation()
+          event.stopImmediatePropagation()
+          
           const nextIndex = visibleWinnerIndex + 1
           setVisibleWinnerIndex(nextIndex)
           
-          // Play sound for the new winner based on their rank
+          // Play sound for the new winner based on their rank (only when dialog is open)
           const nextWinner = winners[nextIndex]
-          if (nextWinner) {
+          if (nextWinner && showDialog) {
             playWinnerSound(nextWinner.rank)
           }
           
@@ -95,18 +121,25 @@ export default function LuckyWheel() {
               winnerElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }
           }, 100)
+          
+          return false
         }
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    // Use capture phase to catch the event early
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    document.addEventListener('keydown', handleKeyDown, { capture: true })
+    
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keydown', handleKeyDown, { capture: true })
+      document.removeEventListener('keydown', handleKeyDown, { capture: true })
     }
   }, [winners.length, visibleWinnerIndex, showDialog])
 
   // Close dialog handler
   const handleCloseDialog = () => {
+    stopAllAudio() // Stop all audio when closing dialog
     setShowDialog(false)
     setVisibleWinnerIndex(-1)
   }
@@ -133,14 +166,19 @@ export default function LuckyWheel() {
     setIsSpinning(true)
     setShowAnimation(false)
     setWinners([])
+    
+    // Stop all previous audio before starting spin
+    stopAllAudio()
 
     // Play spinning sound (winner1 sound for spinning)
-    if (winner1AudioRef.current) {
-      winner1AudioRef.current.currentTime = 0
-      winner1AudioRef.current.play().catch(error => {
-        console.log('Audio play failed:', error)
-      })
-    }
+    setTimeout(() => {
+      if (winner1AudioRef.current) {
+        winner1AudioRef.current.currentTime = 0
+        winner1AudioRef.current.play().catch(error => {
+          console.log('Audio play failed:', error)
+        })
+      }
+    }, 50)
 
     // Random selection logic
     const shuffled = [...valuesList].sort(() => Math.random() - 0.5)
@@ -168,11 +206,7 @@ export default function LuckyWheel() {
       setShowAnimation(true)
       setVisibleWinnerIndex(0) // Show first winner
       setShowDialog(true) // Open dialog
-      
-      // Play sound for first winner
-      setTimeout(() => {
-        playWinnerSound(1)
-      }, 500)
+      // Note: First winner sound will play when user presses Shift+N
 
       // Hide animation after 3 seconds
       setTimeout(() => {
@@ -562,7 +596,7 @@ export default function LuckyWheel() {
                         <p className="text-base text-primary-blue font-bold flex items-center justify-center gap-2">
                           <span>Nhấn</span>
                           <kbd className="px-3 py-1.5 bg-white rounded-lg border-2 border-primary-blue font-mono text-sm font-bold shadow-md">
-                            {isMac ? '⌘' : 'Ctrl'}
+                            Shift
                           </kbd>
                           <span>+</span>
                           <kbd className="px-3 py-1.5 bg-white rounded-lg border-2 border-primary-blue font-mono text-sm font-bold shadow-md">
